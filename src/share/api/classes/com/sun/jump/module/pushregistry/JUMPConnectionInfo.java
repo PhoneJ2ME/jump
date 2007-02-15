@@ -23,8 +23,6 @@
  */
 package com.sun.jump.module.pushregistry;
 
-import java.io.Serializable;
-
 /**
  * PushRegistry connection info.
  *
@@ -33,7 +31,7 @@ import java.io.Serializable;
  * <p><strong>TBD</strong>: at see
  *  <code>javax.microedition.io.PushRegistry#registerConnection</code></p>
  */
-public final class JUMPConnectionInfo implements Serializable {
+public final class JUMPConnectionInfo {
     /**
      * Generic connection <i>protocol</i>, <i>host</i> and <i>port
      * number</i> (optional parameters may be included separated with

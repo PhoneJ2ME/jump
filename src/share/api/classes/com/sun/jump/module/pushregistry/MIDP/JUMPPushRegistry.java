@@ -64,11 +64,9 @@ public interface JUMPPushRegistry extends Remote {
      *
      * @return <code>true</code> if connection has been registered,
      * <code>false</code> otherwise.
-     *
-     * @throws RemoteException as requested by RMI spec.
      */
     boolean registerConnection(int midletSuiteId,
-            JUMPConnectionInfo connection) throws RemoteException;
+            JUMPConnectionInfo connection);
 
     /**
      * Unregisters PushRegistry connection.
@@ -95,11 +93,9 @@ public interface JUMPPushRegistry extends Remote {
      *
      * @return <code>true</code> if connection has been unregistered,
      * <code>false</code> otherwise.
-     *
-     * @throws RemoteException as requested by RMI spec.
      */
     boolean unregisterConnection(int midletSuiteId,
-            JUMPConnectionInfo connection) throws RemoteException;
+            JUMPConnectionInfo connection);
 
     /**
      * Registers an alarm.
