@@ -114,13 +114,13 @@ public class JUMPExecutiveImpl extends JUMPExecutive {
             JUMPIsolateManagerModuleFactory lcmf =
                     JUMPIsolateManagerModuleFactory.getInstance();
             JUMPIsolateManagerModule lcm = lcmf.getModule();
-            JUMPIsolateProxy ip = lcm.newIsolate(JUMPAppModel.XLET);
+            JUMPIsolateProxy ip = lcm.newIsolate(JUMPAppModel.MAIN);
             System.err.println("New isolate created="+ip);
             
             JUMPInstallerModuleFactory imf =
                     JUMPInstallerModuleFactory.getInstance();
             JUMPInstallerModule xletInstaller =
-                    imf.getModule(JUMPAppModel.XLET);
+                    imf.getModule(JUMPAppModel.MAIN);
             JUMPContent[] content = xletInstaller.getInstalled();
             if (content != null) {
                 for (int i = 0; i < content.length; i++) {

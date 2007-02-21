@@ -58,6 +58,11 @@ public class PresentationModuleFactoryImpl extends JUMPPresentationModuleFactory
         if (presentation.equals(JUMPPresentationModuleFactory.SIMPLE_BASIS_AMS)) {
             return getSimpleBasisAMS();
         } else {
+            try {
+                return (JUMPPresentationModule)Class.forName(presentation).newInstance();
+            } catch(Exception e) {
+                e.printStackTrace();
+            }
             throw new IllegalArgumentException("Illegal JUMP Presentation Mode: " + presentation);
         }
     }

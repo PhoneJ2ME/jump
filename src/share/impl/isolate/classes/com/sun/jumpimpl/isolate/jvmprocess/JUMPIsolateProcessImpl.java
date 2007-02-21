@@ -146,14 +146,6 @@ public class JUMPIsolateProcessImpl
 	// Create and register the singleton isolate process
 	JUMPIsolateProcessImpl ipi = new JUMPIsolateProcessImpl();
 
-	JUMPMessageDispatcher d = ipi.getMessageDispatcher();
-	try {
-	    d.registerHandler("mvm/client", ipi);
-	} catch (Throwable e) {
-	    e.printStackTrace();
-	    return;
-	}
-
 	JUMPAppModel appModel = JUMPAppModel.fromName(args[0]);
 	if (appModel == null) {
 	    // Unknown app model
@@ -194,6 +186,23 @@ public class JUMPIsolateProcessImpl
                 }
             }
         }
+
+        //
+        // Register lifecycle requests handler after all classes from 
+        // the "isolate-init-classes" list instantiated. 
+        // This is needed to guarantee that when lifecycle request arrives 
+        // it is passed to handles registered by classes at first and 
+        // then in the last turn to the JUMPIsolateProcessImpl itself.
+        //
+        // Note: windowing relies on this behavior.
+        //
+	JUMPMessageDispatcher d = getMessageDispatcher();
+	try {
+	    d.registerHandler(JUMPExecutiveLifecycleRequest.MESSAGE_TYPE, this);
+	} catch (Throwable e) {
+	    e.printStackTrace();
+	    throw new RuntimeException();
+	}
     }
 
     //
