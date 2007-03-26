@@ -33,12 +33,12 @@ import javax.microedition.xlet.XletContext;
 import javax.microedition.xlet.ixc.StubException;
 
 /* 
- * A pre-generated Stub class for JumpExecIxcRegistry.
+ * A pre-generated Stub class for JUMPExecIxcRegistry.
  * Clinet VMs use this class to talk with master IxcRegistry.
  */
 
-public final class JumpExecIxcRegistryStub extends StubObject 
-                                  implements JumpExecIxcRegistryRemote {
+public final class JUMPExecIxcRegistryStub extends StubObject 
+                                  implements JUMPExecIxcRegistryRemote {
 
     static RemoteRef thisRef;
     static HashMap methodIDsByName = new HashMap();
@@ -46,7 +46,7 @@ public final class JumpExecIxcRegistryStub extends StubObject
     static {
         try {
            RemoteObjectType type = 
-              new RemoteObjectType(JumpExecIxcRegistryRemote.class);
+              new RemoteObjectType(JUMPExecIxcRegistryRemote.class);
 
            thisRef = new RemoteRef(ExportedObject.newObjectID(),
                            ConnectionReceiver.getExecVMServicePort(),
@@ -68,7 +68,7 @@ public final class JumpExecIxcRegistryStub extends StubObject
         }
     }
 
-    public JumpExecIxcRegistryStub(XletContext context) {
+    public JUMPExecIxcRegistryStub(XletContext context) {
         // Arguments are of RemoteRef and XletContext, for it's ClassLoader.
         super(thisRef, context);
     }
