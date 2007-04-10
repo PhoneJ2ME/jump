@@ -189,7 +189,7 @@ void jumpMessageQueueClose(JUMPMessageQueueHandle handle) {
 
 
 // No message header on windows
-int jumpMessageQueueDataOffset(void) {
+int jumpMessageQueueDataOffset() {
     return 0;
 }
 
@@ -317,18 +317,18 @@ int jumpMessageQueueReceive(JUMPPlatformCString messageType, char *buffer, int b
     return cbBytes; //Success
 }
 
-void jumpMessageQueueInterfaceDestroy(void){
+void jumpMessageQueueInterfaceDestroy(){
     int i;
     for (i = 0; i< numOfhSlots; i++) {
         jumpMessageQueueDestroy(mailslots[i].key);
     }
 }
 
-int jumpProcessGetId(void){
+int jumpProcessGetId(){
     return GetCurrentProcessId();
 }
 
-int jumpProcessGetExecutiveId(void){
+int jumpProcessGetExecutiveId(){
     return executiveProcessId;
 }
 
@@ -336,28 +336,8 @@ void jumpProcessSetExecutiveId(int execPid){
     executiveProcessId = execPid;
 }
 
-int jumpThreadGetId(void){
+int jumpThreadGetId(){
     return GetCurrentThreadId();
-}
-
-/**
- * FIXME: Stub implementation
- */
-int 
-jumpProcessRunDriver(char *driverName, char *libName) {
-    (void)driverName;
-    (void)libName;
-    return -1;
-}
-
-/**
- * FIXME: Stub implementation
- */
-int 
-jumpProcessNativeCreate(int argc, char** argv) {
-    (void)argc;
-    (void)argv;
-    return -1;
 }
 
 int  jumpProcessCreate(int argc, char** argv){
@@ -365,7 +345,7 @@ int  jumpProcessCreate(int argc, char** argv){
     int argsBufferSize = 0;
     int i = 0;
     char*  argsBuffer;
-    char* command = "vm-internal.exe com.sun.jumpimpl.isolate.jvmprocess.JUMPIsolateProcessImpl ";
+    char* command = "vm-internal.exe com.sun.jump.isolate.jvmprocess.win32.JUMPWin32IsolateProcessImpl ";
     char * commandLine;
     char * path = ""; //FIXME add lime call to get the full path of the emulator bin directory
     char space = ' ';

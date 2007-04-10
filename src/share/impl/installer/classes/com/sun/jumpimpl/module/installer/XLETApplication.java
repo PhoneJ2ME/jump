@@ -1,4 +1,6 @@
 /*
+ * %W% %E%
+ *
  * Copyright  1990-2006 Sun Microsystems, Inc. All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER
  *
@@ -33,16 +35,11 @@ import java.net.URL;
  * Representation of an XLET application.
  */
 public class XLETApplication extends JUMPApplication {
-       
-    /**
-     * The name of the directory to hold XLET and Main icons
-     */
-    private final static String REPOSITORY_ICONS_DIRNAME = "./icons";    
     
     public static final String CLASSPATH_KEY = "XLETApplication_classpath";
     public static final String BUNDLE_KEY = "XLETApplication_bundle";
     public static final String INITIAL_CLASS_KEY = "XLETApplication_initialClass";
-    private String contentStoreDir = null;
+    private String repositoryDir = null;
     
     /**
      * Create an instance of an application.
@@ -53,14 +50,14 @@ public class XLETApplication extends JUMPApplication {
      * @param title The application's title, can be null
      * @param iconPath The location of the application's icon in, can be null
      */
-    public XLETApplication(String contentStoreDir, String bundle, String clazz, URL classpath, String title,
-            URL iconPath, int id) {
+    public XLETApplication(String repositoryDir, String bundle, String clazz, URL classpath, String title,
+            URL iconPath ) {
         
-        super(title, iconPath, JUMPAppModel.XLET, id);
-        this.contentStoreDir = contentStoreDir;
+        super(title, iconPath, JUMPAppModel.XLET);
+        this.repositoryDir = repositoryDir;
         addProperty(INITIAL_CLASS_KEY, clazz);
         if (classpath != null) {
-            addProperty(CLASSPATH_KEY, classpath.getFile());
+            addProperty(CLASSPATH_KEY, repositoryDir + classpath.getFile());
         }
         addProperty(BUNDLE_KEY, bundle);
     }
@@ -87,7 +84,7 @@ public class XLETApplication extends JUMPApplication {
      */
     public void setClasspath(URL classpath) {
         if (classpath != null) {
-            addProperty(CLASSPATH_KEY, classpath.getFile());
+            addProperty(CLASSPATH_KEY, repositoryDir + classpath.getFile());
         }
     }
     
@@ -111,21 +108,5 @@ public class XLETApplication extends JUMPApplication {
      */
     public void setInitialClass(String initialClass) {
         addProperty(INITIAL_CLASS_KEY, initialClass);
-    }
-    
-    /**
-     * Get the path to the application's icon.
-     * @return A URL defining the path to the icon in
-     *         the downloaded content.
-     */
-    public URL getIconPath() {
-        String file = getProperty(ICONPATH_KEY);
-        URL url = null;
-        try {
-            url = new URL("file", null, file);
-        } catch (MalformedURLException ex) {
-            ex.printStackTrace();
-        }
-        return url;
     }
 }

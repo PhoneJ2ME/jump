@@ -25,7 +25,6 @@
 package com.sun.jumpimpl.process;
 
 import com.sun.jump.executive.JUMPIsolateProxy;
-import com.sun.jump.common.JUMPWindow;
 import com.sun.jump.common.JUMPApplication;
 import com.sun.jump.command.JUMPResponse;
 import com.sun.jump.command.JUMPExecutiveLifecycleRequest;
@@ -34,16 +33,11 @@ import com.sun.jumpimpl.process.JUMPProcessProxyImpl;
 import com.sun.jump.executive.JUMPExecutive;
 import com.sun.jump.executive.JUMPApplicationProxy;
 import com.sun.jump.command.JUMPIsolateLifecycleRequest;
-import java.util.HashMap;
-import java.util.HashSet;
 
 public class JUMPIsolateProxyImpl extends JUMPProcessProxyImpl implements JUMPIsolateProxy {
-    // FIXME: Timeout values should be centralized somewhere
-    private static final long DEFAULT_TIMEOUT = 5000L;
+    private static final long DEFAULT_TIMEOUT = 0L;
     private int                     isolateId;
     private RequestSenderHelper     requestSender;
-    private HashMap                 appIDHash = null;
-    private HashSet                 windows;
     //
     // Isolate state
     //
@@ -60,8 +54,13 @@ public class JUMPIsolateProxyImpl extends JUMPProcessProxyImpl implements JUMPIs
 	
 	while (state < targetState) {
 	    try {
+		// FIXME: This code is unfortunate. There is no
+		// timeout exception in wait(), so we must figure out
+		// if timeout happens or state is reached first.
 		wait(timeout);
-		if (state < targetState) {
+		long time2 = System.currentTimeMillis();
+		long elapsed = time2 - time;
+		if (elapsed > timeout) {
 		    System.err.println("Timed out waiting for "+
 				       "target state="+targetState);
 		    return;
@@ -82,7 +81,6 @@ public class JUMPIsolateProxyImpl extends JUMPProcessProxyImpl implements JUMPIs
         isolateId = pid;
         requestSender = new RequestSenderHelper(JUMPExecutive.getInstance()); 
 	setIsolateState(JUMPIsolateLifecycleRequest.ISOLATE_STATE_CREATED);
-        appIDHash = new HashMap();
     }
 
     public static JUMPIsolateProxyImpl registerIsolate(int pid) 
@@ -137,49 +135,14 @@ public class JUMPIsolateProxyImpl extends JUMPProcessProxyImpl implements JUMPIs
     }
     
     public JUMPApplicationProxy startApp(JUMPApplication app, String[] args) {
-        if (isAlive()) {
-           int appID = requestSender.sendRequestWithIntegerResponse(
-                   this,
-                   new JUMPExecutiveLifecycleRequest(
-                       JUMPExecutiveLifecycleRequest.ID_START_APP,
-		       app.toByteArray(),
-		       args));
-
-	   if (appID == -1) { // failure
-	   	return null;
-           } 
-        
-           JUMPApplicationProxy appProxy = new JUMPApplicationProxyImpl(app, appID, this);
-           appIDHash.put(new Integer(appID), appProxy);
-	   setIsolateState(JUMPIsolateLifecycleRequest.ISOLATE_STATE_RUNNING);
-
-           return appProxy;
-        }
-
-	return null;  
+        int appID = requestSender.sendRequestWithIntegerResponse(
+                this,
+                new JUMPExecutiveLifecycleRequest(
+                    JUMPExecutiveLifecycleRequest.ID_START_APP,
+		    app.toByteArray(),
+		    args));
+        return new JUMPApplicationProxyImpl(app, appID, this);
     }
-
-    public JUMPApplicationProxy[] getApps() {
-        Object obj[];
-        synchronized(this) {
-            obj = appIDHash.values().toArray();
-        }
-        JUMPApplicationProxy appProxy[] = new JUMPApplicationProxy[obj.length];
-        for (int i = 0; i < obj.length; i++) {
-            appProxy[i] = (JUMPApplicationProxy)obj[i];
-        }
-        return appProxy;
-    }
-    
-    public JUMPWindow[] getWindows() {
-        synchronized(this) {
-            if(windows == null || windows.size() == 0) {
-                return null;
-            }
-            return (JUMPWindow[])windows.toArray(new JUMPWindow[]{});
-        }
-    }
-
 
     public int
     getIsolateId() {
@@ -188,59 +151,16 @@ public class JUMPIsolateProxyImpl extends JUMPProcessProxyImpl implements JUMPIs
 
     public void
     kill(boolean force) {
-        if (isAlive()) {
-   	   setStateToDestroyed();
-           JUMPResponse response =
-               requestSender.sendRequest(
-                   this,
-                   new JUMPExecutiveLifecycleRequest(
-                       JUMPExecutiveLifecycleRequest.ID_DESTROY_ISOLATE,
-                       new String[] { Boolean.toString(force) }));
-           requestSender.handleBooleanResponse(response);
-	}   
+        JUMPResponse response =
+            requestSender.sendRequest(
+                this,
+                new JUMPExecutiveLifecycleRequest(
+                    JUMPExecutiveLifecycleRequest.ID_DESTROY_ISOLATE,
+                    new String[] { Boolean.toString(force) }));
+        requestSender.handleBooleanResponse(response);
     }
 
     RequestSenderHelper getRequestSender() {
         return requestSender;
-    }
-
-    /**
-     * Sets this IsolateProxy to the destroyed state and 
-     * perform all the data cleanup.
-     */
-    public void
-    setStateToDestroyed() {
-	setIsolateState(JUMPIsolateLifecycleRequest.ISOLATE_STATE_DESTROYED);
-        appIDHash.clear();
-    }
-
-    /**
-     * Return true if this IsolateProxy represents a created and
-     * not yet destroyed Isolate.
-     */
-    public boolean 
-    isAlive() { 
-        int state = getIsolateState();
-        switch(state) {
-	    case JUMPIsolateLifecycleRequest.ISOLATE_STATE_CREATED:
-	    case JUMPIsolateLifecycleRequest.ISOLATE_STATE_INITIALIZED:
-	    case JUMPIsolateLifecycleRequest.ISOLATE_STATE_RUNNING:
-		    return true;
- 	}
-	return false;
-    }
-
-    public void
-    registerWindow(JUMPWindow w) {
-        if(w == null || w.getIsolate() != this) {
-            throw new IllegalStateException();
-        }
-
-        synchronized(this) {
-            if(windows == null) {
-                windows = new HashSet();
-            }
-            windows.add(w);
-        }
     }
 }

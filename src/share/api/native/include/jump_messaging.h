@@ -31,18 +31,12 @@
 
 #include "porting/JUMPTypes.h"
 
-/* Messages at this level are always JUMP_MESSAGE_BUFFER_SIZE bytes,
-   even though the porting layer allows variable length messages, and
-   possibly longer messages.  Clients can rely on being able to send
-   messages of this length.  There is an assert in jumpMessageStart to
-   ensure JUMP_MESSAGE_BUFFER_SIZE <= JUMP_MESSAGE_QUEUE_MAX_MESSAGE_SIZE.
-
-   JUMP_MESSAGE_BUFFER_SIZE is currently equal to the minimum of any
-   porting layer's JUMP_MESSAGE_QUEUE_MAX_MESSAGE_SIZE.  Reducing it
-   could have consequences for clients, and increasing it would have
-   consequences for porting layers. */
-
-#define JUMP_MESSAGE_BUFFER_SIZE 4092
+/*
+ * FIXME: This should be part of the message porting layer,
+ * determining the buffer size to allocate for each incoming message
+ * Also, there should be a re-allocation increment, and a maximum.
+ */
+#define MESSAGE_BUFFER_SIZE 512
 
 /**
  * @brief identifies 
@@ -51,13 +45,7 @@ typedef enum {
     JUMP_TARGET_NONEXISTENT    = 1,
     JUMP_TIMEOUT  = 2,
     JUMP_SUCCESS  = 3,
-    JUMP_FAILURE  = 4,
-    JUMP_OUT_OF_MEMORY = 5,
-    JUMP_WOULD_BLOCK = 6,
-    JUMP_OVERRUN = 7,
-    JUMP_NEGATIVE_ARRAY_LENGTH = 8,
-    JUMP_UNBLOCKED = 9,
-    JUMP_NO_SUCH_QUEUE = 10
+    JUMP_FAILURE  = 4 
 } JUMPMessageStatusCode;
 
 /*
@@ -83,32 +71,22 @@ typedef JUMPMessage JUMPOutgoingMessage;
  * Addressing related api's
  */
 extern JUMPAddress 
-jumpMessageGetMyAddress(void);
+jumpMessageGetMyAddress();
 
 extern JUMPAddress 
-jumpMessageGetExecutiveAddress(void);
+jumpMessageGetExecutiveAddress();
 
 extern char*
-jumpMessageGetReturnTypeName(void);
+jumpMessageGetReturnTypeName();
 
 /*
  * Message creation api's
  */
-/*
- * On success, *code is set to JUMP_SUCCESS.  Otherwise it is set
- *   to one of JUMP_OUT_OF_MEMORY or JUMP_OVERRUN.
- */
 extern JUMPOutgoingMessage
-jumpMessageNewOutgoingByType(JUMPPlatformCString type,
-			     JUMPMessageStatusCode *code);
+jumpMessageNewOutgoingByType(JUMPPlatformCString type);
 
-/*
- * On success, *code is set to JUMP_SUCCESS.  Otherwise it is set
- *   to one of JUMP_OUT_OF_MEMORY or JUMP_OVERRUN.
- */
 extern JUMPOutgoingMessage
-jumpMessageNewOutgoingByRequest(JUMPMessage requestMessage,
-				JUMPMessageStatusCode *code);
+jumpMessageNewOutgoingByRequest(JUMPMessage requestMessage);
 
 /*
  * Free an outgoing message.
@@ -158,19 +136,13 @@ extern void
 jumpMessageAddByte(JUMPOutgoingMessage m, int8 value);
 
 extern void
-jumpMessageAddBytesFrom(JUMPOutgoingMessage m, const int8* values, int length);
-
-extern void
-jumpMessageAddByteArray(JUMPOutgoingMessage m, const int8* values, int length);
+jumpMessageAddByteArray(JUMPOutgoingMessage m, int8* values, int length);
 
 extern void
 jumpMessageAddShort(JUMPOutgoingMessage m, int16 value);
 
 extern void
 jumpMessageAddInt(JUMPOutgoingMessage m, int32 value);
-
-extern void
-jumpMessageAddLong(JUMPOutgoingMessage m, int64 value);
 
 extern void
 jumpMessageAddString(JUMPOutgoingMessage m, JUMPPlatformCString str);
@@ -181,99 +153,39 @@ jumpMessageAddStringArray(JUMPOutgoingMessage m,
 			  uint32 length);
 
 /*
- * Returns the message's status, which will be JUMP_SUCCESS if all
- * calls to jumpMessageAdd...() have succeeded, otherwise will be one
- * of JUMP_OVERRUN or JUMP_NEGATIVE_ARRAY_LENGTH.
- */
-extern JUMPMessageStatusCode
-jumpMessageGetStatus(JUMPOutgoingMessage m);
-
-/*
  * Message data read api's
  */
-
 typedef struct {
     uint8* ptr;
-    const uint8* ptrEnd;
-    JUMPMessageStatusCode status;
+    JUMPMessage m;
 } JUMPMessageReader;
 
-/*
- * Initializes the JUMPMessageReader and sets its status to JUMP_SUCCESS.
- */
 extern void
 jumpMessageReaderInit(JUMPMessageReader* r, JUMPMessage m);
 
-/*
- * If r->status != JUMP_SUCCESS, returns 0.  Otherwise returns the
- * next byte from the message or sets r->status to JUMP_OVERRUN on
- * error.
- */
 extern int8
 jumpMessageGetByte(JUMPMessageReader* r);
 
 /*
- * If r->status != JUMP_SUCCESS, returns NULL.  Otherwise copies bytes
- * from the message into the buffer and returns buffer, or sets
- * r->status to JUMP_OVERRUN on error.
- */
-extern int8*
-jumpMessageGetBytesInto(JUMPMessageReader* r, int8* buffer, uint32 length);
-
-/*
- * If r->status != JUMP_SUCCESS, returns NULL.  Otherwise returns the
- * next byte array from the message or sets r->status to one of
- * JUMP_OVERRUN, JUMP_OUT_OF_MEMORY, or JUMP_NEGATIVE_ARRAY_LENGTH on
- * error.  The caller should call free() on the return value once it
- * is done.  Sets *length to the number of bytes in the array, or -1
- * if the array was NULL.  A NULL return value with *length != -1
- * indicates out of memory.
+ * The caller should call free() on the return value once it is done
  */
 extern int8*
 jumpMessageGetByteArray(JUMPMessageReader* r, uint32* length);
 
-/*
- * If r->status != JUMP_SUCCESS, returns 0.  Otherwise returns the
- * next short from the message or sets r->status to JUMP_OVERRUN on
- * error.
- */
 extern int16
 jumpMessageGetShort(JUMPMessageReader* r);
 
-/*
- * If r->status != JUMP_SUCCESS, returns 0.  Otherwise returns the
- * next int from the message or sets r->status to JUMP_OVERRUN on
- * error.
- */
 extern int32
 jumpMessageGetInt(JUMPMessageReader* r);
 
 /*
- * If r->status != JUMP_SUCCESS, returns 0.  Otherwise returns the
- * next int from the message or sets r->status to JUMP_OVERRUN on
- * error.
- */
-extern int64
-jumpMessageGetLong(JUMPMessageReader* r);
-
-/*
- * If r->status != JUMP_SUCCESS, returns NULL.  Otherwise returns the
- * next string from the message or sets r->status to one of
- * JUMP_OVERRUN, JUMP_OUT_OF_MEMORY, or JUMP_NEGATIVE_ARRAY_LENGTH on
- * error. The caller should call free() on the return value once it is
- * done
+ * The caller should call free() on the return value once it is done
  */
 extern JUMPPlatformCString
 jumpMessageGetString(JUMPMessageReader* r);
 
 /*
- * If r->status != JUMP_SUCCESS, returns NULL.  Otherwise returns the
- * next string from the message or sets r->status to one of
- * JUMP_OVERRUN, JUMP_OUT_OF_MEMORY, or JUMP_NEGATIVE_ARRAY_LENGTH on
- * error.  The caller should call free() on the return value once it
- * is done Sets *length to the number of strings in the array, or -1
- * if the array was NULL.  A NULL return value with *length != -1
- * indicates out of memory.
+ * The caller should call free() on the return value once it is done
  */
 extern JUMPPlatformCString*
 jumpMessageGetStringArray(JUMPMessageReader* r, uint32* length);
@@ -283,9 +195,6 @@ jumpMessageGetStringArray(JUMPMessageReader* r, uint32* length);
  */
 extern JUMPPlatformCString
 jumpMessageGetType(JUMPMessage m);
-
-extern JUMPAddress*
-jumpMessageGetSender(JUMPMessage m);
 
 /*
  * Message send api's.
@@ -299,9 +208,6 @@ jumpMessageGetSender(JUMPMessage m);
 /*
  * jumpMessageSendAsync() does not block. If the message cannot be sent
  * out, a proper error code is returned immediately.
- *
- * On return, sets *code to one of JUMP_SUCCESS, JUMP_OUT_OF_MEMORY,
- * JUMP_WOULD_BLOCK, JUMP_TARGET_NONEXISTENT, or JUMP_FAILURE.
  */
 extern void
 jumpMessageSendAsync(JUMPAddress target, JUMPOutgoingMessage m,
@@ -314,19 +220,11 @@ jumpMessageSendAsync(JUMPAddress target, JUMPOutgoingMessage m,
  *
  * This call does not block. If the message cannot be sent
  * out, a proper error code is returned immediately.
- *
- * On return, sets *code to one of JUMP_SUCCESS, JUMP_OUT_OF_MEMORY,
- * JUMP_WOULD_BLOCK, JUMP_TARGET_NONEXISTENT, or JUMP_FAILURE.
  */
 extern void
 jumpMessageSendAsyncResponse(JUMPOutgoingMessage m,
 			     JUMPMessageStatusCode* code);
 
-/*
- * On return, sets *code to one of JUMP_SUCCESS, JUMP_OUT_OF_MEMORY,
- * JUMP_WOULD_BLOCK, JUMP_TARGET_NONEXISTENT, JUMP_TIMEOUT,
- * JUMP_UNBLOCKED, JUMP_OVERRUN, JUMP_NEGATIVE_ARRAY_LENGTH, or JUMP_FAILURE.
- */
 extern JUMPMessage
 jumpMessageSendSync(JUMPAddress target, JUMPOutgoingMessage m, int32 timeout,
 		    JUMPMessageStatusCode* code);
@@ -347,62 +245,24 @@ jumpMessageSendSync(JUMPAddress target, JUMPOutgoingMessage m, int32 timeout,
  * past the return point of the JUMPMessageHandler.
  */
 typedef void (*JUMPMessageHandler)(JUMPMessage m, void* data);
-typedef struct JUMPMessageHandlerRegistration * JUMPMessageHandlerRegistration;
+typedef void* JUMPMessageHandlerRegistration;
 
 /*
  * Listening to messages directly
  */
 
 /*
- * Register 'type' for direct listening.  On success, *code is set to
- * JUMP_SUCCESS.  Otherwise it is set to one of JUMP_OUT_OF_MEMORY or
- * JUMP_FAILURE.
+ * Register 'type' for direct listening
  */
 extern JUMPMessageHandlerRegistration
-jumpMessageRegisterDirect(JUMPPlatformCString type,
-			  JUMPMessageStatusCode *code);
+jumpMessageRegisterDirect(JUMPPlatformCString type);
 
 /*
  * Block and wait for incoming message of a given type
- *
- * On return, sets *code to one of JUMP_SUCCESS, JUMP_OUT_OF_MEMORY,
- * JUMP_TIMEOUT, JUMP_UNBLOCKED, JUMP_OVERRUN, JUMP_NEGATIVE_ARRAY_LENGTH,
- * JUMP_NO_SUCH_QUEUE, or JUMP_FAILURE.
  */
 extern JUMPMessage
 jumpMessageWaitFor(JUMPPlatformCString type,
-		   int32 timeout,
-		   JUMPMessageStatusCode *code);
-
-/**
- * Unblocks one thread blocking in, or about to call,
- * jumpMessageWaitFor (or jumpMessageSendSync, although this is not
- * intended to be used with threads blocking in jumpMessageSendSync
- * since they should be using a timeout).  The thread may return with
- * JUMP_UNBLOCKED.  This is used to unblock listening threads so they
- * can exit when they are no longer needed.
- * 
- * @return On success, set *code to JUMP_SUCCESS.  Otherwise
- *         sets *code to one of JUMP_NO_SUCH_QUEUE or JUMP_FAILURE.
- */
-extern void jumpMessageUnblock(JUMPPlatformCString messageType,
-			       JUMPMessageStatusCode* code);
-
-/*
- * Returns a file descriptor for the messageType which may be
- * select()ed on and will become readable when a message may be
- * available.  When the file descriptor becomes readable, a subsequent
- * call to jumpMessageWaitFor will not block (assuming no other thread
- * has read the message), but may return a failure including
- * JUMP_UNBLOCKED.  Using the file descriptor for anything other than
- * select is undefined.  Using the file descriptor after the message
- * type has been unregistered is undefined.
- *
- * Returns the file descriptor, or -1 if the message type is not
- * registered.
- */
-extern int
-jumpMessageGetFd(JUMPPlatformCString type);
+		   int32 timeout);
 
 /*
  * Registration for callback based message handling
@@ -424,25 +284,20 @@ jumpMessageCancelRegistration(JUMPMessageHandlerRegistration r);
  * Messaging system shutdown,start and re-start
  */
 extern JUMPMessageStatusCode
-jumpMessageShutdown(void);
+jumpMessageShutdown();
 
 extern JUMPMessageStatusCode
-jumpMessageStart(void);
+jumpMessageStart();
 
 extern JUMPMessageStatusCode
-jumpMessageRestart(void);
+jumpMessageRestart();
 
 /* Raw buffer operations */
 /*
- * Create an outgoing message from a buffer that's been filled elsewhere.
- * The buffer is assumed to be JUMP_MESSAGE_BUFFER_SIZE bytes.
- * On success, returns the JUMPOutgoingMessage and sets *code to
- * JUMP_SUCCESS.  On failure, returns NULL and sets *code to one
- * JUMP_OUT_OF_MEMORY, JUMP_OVERRUN, or JUMP_NEGATIVE_ARRAY_LENGTH.
+ * Create an outgoing message from a buffer that's been filled elsewhere
  */
 extern JUMPOutgoingMessage
-jumpMessageNewOutgoingFromBuffer(uint8* buffer, int isResponse,
-				 JUMPMessageStatusCode *code);
+jumpMessageNewOutgoingFromBuffer(uint8* buffer, int isResponse);
 
 /*
  * Get raw buffer of message

@@ -32,22 +32,14 @@ import java.util.Map;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
-import java.io.File;
-import java.lang.reflect.Method;
-import java.util.Vector;
-import java.util.HashMap;
-
-import sun.misc.MIDPConfig;
-
 /**
  * Factory implementation methods for the installer module
  */
 public class InstallerFactoryImpl extends JUMPInstallerModuleFactory {
-
     private JUMPInstallerModule mainInstaller;
     private JUMPInstallerModule xletInstaller;
     private JUMPInstallerModule midletInstaller;
-    private Map configMap = new HashMap();
+    private Map configMap;
     
     private JUMPInstallerModule getMainInstaller() 
     {
@@ -71,80 +63,18 @@ public class InstallerFactoryImpl extends JUMPInstallerModuleFactory {
 	}
     }
 	
-    static boolean midletInstallerInitialized = false;
     private JUMPInstallerModule getMidletInstaller() 
     {
 	synchronized(InstallerFactoryImpl.class) {
-
-	    if (midletInstaller == null && !midletInstallerInitialized) {
-
-              /** 
-              * The MIDLET installer is part of the MIDP library, which
-              * is only accessible through the MIDPImplementationClassLoader.
-              * Hence the installer needs to be loaded by the midp implementation
-              * classloader via reflection. Otherwise, the full midp-cdc-jump
-              * rommization fails as well as runtime requiring midp classes to
-              * be in the same path as jump classes. 
-              **/   
-
-               try {
-
-                  ClassLoader midpImplementationClassLoader = 
-   		      MIDPConfig.getMIDPImplementationClassLoader();
-   
-   	          if (midpImplementationClassLoader == null) {
-   
-	             /**		   
-	              *	Noone had a need to load midp classes yet.
-		      *	Create the classloader using the
-		      *	default location in which sun.misc.MIDPLauncher
-		      *	normally uses, unless jump.midp.classes.zip is set.
-		      **/
- 
-                     String midpFile = (String) configMap.get("jump.midp.classes.zip");
-
-                     midpImplementationClassLoader =
-   	                MIDPConfig.newMIDPImplementationClassLoader(new String[]{midpFile});
-   	          }   
-                  
-   	          midletInstaller = (JUMPInstallerModule) 
-   	             loadAndInstantiate(midpImplementationClassLoader,
-   			          "com.sun.midp.jump.installer.MIDLETInstallerImpl"); 	
-                  if (midletInstaller != null) {
-		      midletInstaller.load(configMap);
-                  }
-
-               } catch (ClassNotFoundException e) {
-                  // MIDPConfig or MIDLETInstallerImpl not found. 
-		  // Not a dual stack platform.
-                  e.printStackTrace();
-               } catch (Exception e) { 
-                  // Other unexpected error? Let's report it.
-                  e.printStackTrace();
-               }
-               midletInstallerInitialized = true;
+	    if (midletInstaller == null) {
+		midletInstaller = new MIDLETInstallerImpl();
+		midletInstaller.load(configMap);
 	    }
-	    
 	    return midletInstaller;
 	}
     }
-
-
-    private static Object loadAndInstantiate(ClassLoader loader,
-                       String className) throws ClassNotFoundException {
-
-	try {     
-           Class clazz = Class.forName(className, true, loader);
-           return clazz.newInstance();
-        } catch (InstantiationException e) { 
-	   e.printStackTrace(); 
-        } catch (IllegalAccessException e) { 
- 	   e.printStackTrace(); 
-	}
-
-	return null;
-    }
-
+	
+    
     /**
      * resource bundle for the installer module
      */
@@ -180,11 +110,7 @@ public class InstallerFactoryImpl extends JUMPInstallerModuleFactory {
         }
         
         if (appModel == JUMPAppModel.MIDLET) {
-            JUMPInstallerModule module = getMidletInstaller();
-            if (module == null)
-               throw new IllegalArgumentException("Can't find MIDLET installer");
-
-            return module;
+            return getMidletInstaller();
         }
         
         throw new IllegalArgumentException("Illegal app model for installer.");
@@ -211,21 +137,16 @@ public class InstallerFactoryImpl extends JUMPInstallerModuleFactory {
      * @return a list of all registered installers in the system for all types
      * of content.
      */
-    public JUMPInstallerModule[] getAllInstallers() {        
-        Vector vector = new Vector();
-        JUMPInstallerModule mainModule = getMainInstaller();
-        if (mainModule != null) {
-            vector.add(mainModule);
-        }
-        JUMPInstallerModule xletModule = getXletInstaller();
-        if (xletModule != null) {
-            vector.add(xletModule);
-        }
-        JUMPInstallerModule midletModule = getMidletInstaller();
-        if (midletModule != null) {
-            vector.add(midletModule);
-        }
-        return (JUMPInstallerModule[]) vector.toArray(new JUMPInstallerModule[]{});
+    public JUMPInstallerModule[] getAllInstallers() {
+        
+        // We support XLET, MAIN, AND MIDLET
+        JUMPInstallerModule modules[] = new JUMPInstallerModule[3];
+        
+        modules[0] = getMainInstaller();
+        modules[1] = getXletInstaller();
+        modules[2] = getMidletInstaller();
+        
+        return modules;
     };
     
     /*
@@ -256,5 +177,4 @@ public class InstallerFactoryImpl extends JUMPInstallerModuleFactory {
     static int getInt(String key) {
         return Integer.parseInt(getString(key));
     }
-
 }

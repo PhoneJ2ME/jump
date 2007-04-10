@@ -30,8 +30,9 @@ import com.sun.jump.module.download.JUMPDownloadException;
 import java.net.URL;
 import java.net.MalformedURLException;
                                                                                      
-public class MIDPDownloadDescriptor extends BaseDownloadDescriptor {
-    public MIDPDownloadDescriptor(String schema, String source) {
-        super(schema, source);
+public class MIDPDownloadDescriptor extends BaseDownloadDescriptor
+{
+    public MIDPDownloadDescriptor( String schema, String source ) {
+        super( schema, source);
     }
 }
