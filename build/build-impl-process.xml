@@ -24,11 +24,9 @@ information or have any questions.
 -->
 <project basedir="." default="compile-process" name="jump-impl-process">
 
-  <import file="build-modules-config.xml"/>
-
-  <target name="compile-process" depends="gen-modules-config">
+  <target name="compile-process">
       <jump.javac
-             srcdir="${s.share.impl.dir}/process/classes:${d.gen.dir}">
+             srcdir="${s.share.impl.dir}/process/classes">
            <include name="com/sun/jumpimpl/process/*.java" />
       </jump.javac>
   </target>

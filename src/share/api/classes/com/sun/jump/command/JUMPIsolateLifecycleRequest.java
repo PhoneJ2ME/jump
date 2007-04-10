@@ -56,11 +56,6 @@ public class JUMPIsolateLifecycleRequest extends JUMPRequest {
     public static final int ISOLATE_STATE_RUNNING = 3;
     
     /**
-     * Isolate has been destroyed 
-     */
-    public static final int ISOLATE_STATE_DESTROYED = 4;
-    
-    /**
      * Application requesting the executive to pause itself.
      * <ol>
      *   <li>args[0] - Isolate Id</li>
@@ -143,10 +138,6 @@ public class JUMPIsolateLifecycleRequest extends JUMPRequest {
 
     public int getIsolateId() {
 	return isolateId;
-    }
-    
-    public int getAppId() {
-        return appId;
     }
     
     /** 

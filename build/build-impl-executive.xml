@@ -28,7 +28,24 @@ information or have any questions.
 <property name="module-factories.basename" value="JUMPFactories.java"/>
 
 
-<target name="gen-module-factories-initializer.tmp">
+<target name="gen-modules-config">
+    <loadproperties srcFile="modules-config.properties">
+        <filterchain>
+            <prefixlines prefix="@modules-config."/>
+        </filterchain>
+    </loadproperties>
+
+    <propertyset id="module-factories-propertyset">
+        <propertyref prefix="@modules-config."/>
+        <mapper type="glob" from="@modules-config.*" to="&#10;*"/>
+    </propertyset>
+
+    <property name="module-factories.config.raw" refid="module-factories-propertyset"/>
+    <property name="ant-property-separator" value=", "/>
+</target>
+
+
+<target name="gen-module-factories-initializer.tmp" depends="gen-modules-config">
     <condition
         property="module-factories"
         value="${module-factories-configuration}"
@@ -69,13 +86,18 @@ information or have any questions.
 
 package com.sun.jumpimpl.executive;
 
-import java.util.Map;
-
 import com.sun.jump.module.JUMPModuleFactory;
-
+import java.util.Hashtable;
 
 class JUMPFactories {
-    static void loadModule(Map config, String partialName)
+    private static Hashtable config;
+
+    static Hashtable
+    getDefaultConfig() {
+        return config;
+    }
+
+    static void loadModule(String partialName)
         throws InstantiationException, IllegalAccessException, ClassNotFoundException {
         String s = "com.sun.jumpimpl.module."+partialName;
         System.err.println("Loading "+s);
@@ -83,11 +105,32 @@ class JUMPFactories {
 	((JUMPModuleFactory)o).load(config);
     }
 
-    static void init(Map config) {
+    static {
+        config = new Hashtable();
+</concat>
+        <concat destfile="${module-factories.file}.tmp" append="true">
+${module-factories.config.raw}${ant-property-separator}
+#
+            <filterchain>
+                <tokenfilter>
+                    <stringtokenizer delims="&#10;" suppressdelims="true"/>
+                    <replacestring from="\" to="\\"/>
+                    <replacestring from="'" to="\'"/>
+                    <replacestring from="&quot;" to="\&quot;"/>
+                    <containsregex
+                        pattern="^([^#=]+)=(.*)${ant-property-separator}$$"
+                        replace="        config.put(&quot;\1&quot;, &quot;\2&quot;);&#10;"/>
+                </tokenfilter>
+            </filterchain>
+</concat>
+        <concat destfile="${module-factories.file}.tmp" append="true">
+    }
+
+    static void init() {
         try {
 </concat>
 ${module-factories.antcalls}
-    <concat destfile="${module-factories.file}.tmp" append="true">
+        <concat destfile="${module-factories.file}.tmp" append="true">
         } catch(Exception e) {
             e.printStackTrace();
             throw new RuntimeException("module factories initialization failed");
@@ -111,7 +154,7 @@ ${module-factories.antcalls}
                     </filtermapper>
                     <regexpmapper
                         from="com.sun.jumpimpl.module.(.*)$$"
-                        to="            loadModule(config, &quot;\1&quot;);"/>
+                        to="            loadModule(&quot;\1&quot;);"/>
                 </chainedmapper>
             </mapper>
         </pathconvert>

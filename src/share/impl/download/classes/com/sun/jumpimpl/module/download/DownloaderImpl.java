@@ -1,5 +1,6 @@
+
 /*
- * Copyright  1990-2007 Sun Microsystems, Inc. All Rights Reserved.
+ * Copyright  1990-2006 Sun Microsystems, Inc. All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER
  *
  * This program is free software; you can redistribute it and/or
@@ -35,6 +36,8 @@ import java.net.URLConnection;
 import java.util.Vector;
 
 class DownloaderImpl implements JUMPDownloader {
+
+    static int downloadContent = 1;
 
     JUMPDownloadDescriptor descriptor;
     boolean isCancelled = false;
@@ -75,20 +78,19 @@ class DownloaderImpl implements JUMPDownloader {
                                        descriptor.getSize(),  
                                        destination);
 
-	String fileExtension = null;
-
+        String outputFile = "/tmp/" + (downloadContent++);
         if (descriptor.getType() == JUMPDownloadDescriptor.TYPE_APPLICATION) {
-            fileExtension = ".jar";
+            outputFile = outputFile + ".jar";
         }
 
         if (downloadSucceeded) {
             try {
-                File jarFile = File.createTempFile("content", fileExtension);
-                FileOutputStream fos = new FileOutputStream( jarFile );
+                File f = new File( outputFile );
+                FileOutputStream fos = new FileOutputStream( f );
                 fos.write( ((DownloadDestinationImpl)destination).getBuffer() );
                 fos.close();
 
-                return jarFile.toURI().toURL();
+                return new File(outputFile).toURI().toURL();
             } catch ( Exception e ) {
                 e.printStackTrace();
                 throw new JUMPDownloadException(e.toString());
@@ -98,20 +100,6 @@ class DownloaderImpl implements JUMPDownloader {
         return null;
  
     }
-    
-    private String encode(String url) {
-        // Change spaces to %20
-        String encodedURL = "";
-        for (int i = 0; i < url.length(); i++) {
-            char c = url.charAt(i);
-            if (c == ' ') {
-                encodedURL += "%20";
-            } else {
-                encodedURL += c;
-            }
-        }
-        return encodedURL;
-    }    
 
     public boolean startDownload( String url, String nfUri,
                                 int size, JUMPDownloadDestination store
@@ -128,7 +116,7 @@ class DownloaderImpl implements JUMPDownloader {
                 gran = report.getGranularity();
             }
 
-            URL objectUrl = new URL( encode(url) );
+            URL objectUrl = new URL( url );
     
             if ( report != null )
             {
@@ -136,17 +124,16 @@ class DownloaderImpl implements JUMPDownloader {
             }
             
             URLConnection conn = objectUrl.openConnection();
-            
-            if (objectUrl.getProtocol().equals("http") &&
-                ( ( HttpURLConnection )conn ).getResponseCode() !=
-                         HttpURLConnection.HTTP_OK )
+    
+            if ( ( ( HttpURLConnection )conn ).getResponseCode() !=
+                     HttpURLConnection.HTTP_OK )
             {
                 if ( nfUri != null )
                 {
                     sendNotify( nfUri, ST_LOADERERROR,
                                 "Can't process server response" );
                 }
-                
+            
                 throw new JUMPDownloadException( "Http response is not OK: "+
                              ( (HttpURLConnection )conn ).getResponseCode() );
             }

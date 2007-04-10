@@ -81,7 +81,7 @@ public abstract class JUMPContentStore implements JUMPModule {
            }
         } else {  // read-only
            synchronized(lock) {
-              while (exclusiveAccess > 0) {
+              if (exclusiveAccess > 0) {
                  try {
                     // Wait until closeStore is called... 
                     lock.wait();

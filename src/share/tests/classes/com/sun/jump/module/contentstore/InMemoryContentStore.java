@@ -24,14 +24,11 @@
 
 package com.sun.jump.module.contentstore;
 
-import com.sun.midp.jump.push.executive.persistence.StoreOperationManager;
 import java.io.IOException;
 import java.util.Map;
 
 /** In memory version of <code>JUMPContentStore</code>. */
-public final class InMemoryContentStore
-        extends JUMPContentStore
-        implements StoreOperationManager.ContentStore {
+public final class InMemoryContentStore extends JUMPContentStore {
     /** Store. */
     private final InMemoryStore store;
 
@@ -77,44 +74,21 @@ public final class InMemoryContentStore
     }
 
     /**
-     * Opens content store.
+     * Creates a store handle with some prebuild dirs.
      *
-     * As requested by #StoreOperationManager.ContentStore interface
-     *
-     * @param accessExclusive access type
+     * @param dirs directories to create
      *
      * @return store handle
      *
-     * @thorws IOException if IO fails
-     */
-    public JUMPStoreHandle open(final boolean accessExclusive) {
-        return openStore(accessExclusive);
-    }
-
-    /**
-     * Closes opened content store handle.
-     *
-     * As requested by #StoreOperationManager.ContentStore interface
-     *
-     * @param storeHandle handle to close
-     */
-    public void close(final JUMPStoreHandle storeHandle) {
-        closeStore(storeHandle);
-    }
-
-    /**
-     * Populates a store handle with some prebuild dirs.
-     *
-     * @param storeHandle handle to the store to operate on
-     * @param dirs directories to create
-     *
      * @throws IOException if IO failed
      */
-    public static void initStore(
-            final JUMPStoreHandle storeHandle, final String [] dirs)
-                throws IOException {
+    public static JUMPStoreHandle createStore(final String [] dirs)
+            throws IOException {
+        final JUMPStoreHandle storeHandle =
+                new InMemoryContentStore().openStore(true);
         for (int i = 0; i < dirs.length; i++) {
             storeHandle.createNode(dirs[i]);
         }
+        return storeHandle;
     }
 }

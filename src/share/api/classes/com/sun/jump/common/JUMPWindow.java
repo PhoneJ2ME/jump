@@ -43,10 +43,15 @@ public abstract class JUMPWindow {
     /**
      * Returns an ID for the window
      */
-    public abstract int getId();
+    public abstract long getId();
 
     /** 
      * Return the isolate that this window runs in
      */
     public abstract JUMPIsolate getIsolate();
+
+    /**
+     * Return the application that this window runs in
+     */
+    public abstract JUMPApplication getApplication();
 }

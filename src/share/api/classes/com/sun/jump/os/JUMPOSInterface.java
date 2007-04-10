@@ -35,7 +35,7 @@ public abstract class JUMPOSInterface {
     }
     
     /**
-     * Creates a new instance of JUMPOSInterface
+     * Creates a new instance of JUMPLifeCycleModuleFactory
      */
     protected JUMPOSInterface() {
         synchronized (JUMPOSInterface.class){
@@ -44,25 +44,12 @@ public abstract class JUMPOSInterface {
             }
         }
     }
-
-    /**
-     * Set testing mode. A "TESTING_MODE" message is sent to the
-     * server.
-     * @param filePrefix tells the server where the stdout and 
-     * stderr output files should go.
-     */
-    public abstract void setTestingMode(String filePrefix);
     
     /**
      * Create a process and return a unique integer ID designating it.
      */
     public abstract int createProcess(String[] args);
 
-    /**
-     * Create a native process and return a unique integer ID designating it.
-     */
-    public abstract int createProcessNative(String[] args);
-    
     /**
      * Return the current process ID.
      */

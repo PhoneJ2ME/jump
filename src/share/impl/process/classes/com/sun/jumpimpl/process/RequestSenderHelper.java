@@ -31,7 +31,6 @@ import com.sun.jump.message.JUMPMessageSender;
 import com.sun.jump.message.JUMPMessagingService;
 import com.sun.jump.message.JUMPTimedOutException;
 import java.io.IOException;
-import com.sun.jump.command.JUMPCommand;
 import com.sun.jump.command.JUMPRequest;
 import com.sun.jump.command.JUMPResponse;
 import com.sun.jump.command.JUMPResponseInteger;
@@ -40,8 +39,7 @@ import com.sun.jump.command.JUMPResponseInteger;
  * Helper class to handle request/response exchange.
  */
 public class RequestSenderHelper {
-    // FIXME: Timeout values should be centralized somewhere
-    private static final long DEFAULT_TIMEOUT = 5000L;
+    private static final long DEFAULT_TIMEOUT = 0L;
 
     private JUMPMessagingService host; // either isolate or executive
 
@@ -98,25 +96,14 @@ public class RequestSenderHelper {
     /**
      * Send outgoing request and get a response
      */
-    public JUMPCommand
-    sendRequest(
-        JUMPMessageSender target, JUMPRequest request, Class responseClass) {
-        
+    public JUMPResponse
+    sendRequest(JUMPMessageSender target, JUMPRequest request) {
 	JUMPMessage r = sendRequestWork(target, request);
 	if (r == null) {
 	    return null;
 	}
-	return JUMPCommand.fromMessage(r, responseClass);
+	return JUMPResponse.fromMessage(r);
     }
-    
-     /**
-     * Send outgoing request and get a response
-     */
-    public JUMPResponse
-    sendRequest(JUMPMessageSender target, JUMPRequest request) {
-	return (JUMPResponse)sendRequest(target, request, JUMPResponse.class);
-    }
-
 
     /**
      * Send outgoing request and get a response
@@ -150,31 +137,15 @@ public class RequestSenderHelper {
      * Send boolean response to incoming request
      */
     public void
-    sendBooleanResponse(JUMPMessage incoming, boolean value) {
+    sendBooleanResponse(JUMPMessage incoming,
+			boolean booleanResponse) {
         try {
             JUMPOutgoingMessage m = host.newOutgoingMessage(incoming);
 	    JUMPMessageResponseSender mrs = incoming.getSender();
-
-            m.addUTF(
-                value ? JUMPResponse.ID_SUCCESS : JUMPResponse.ID_FAILURE);
             mrs.sendResponseMessage(m);
         } catch(IOException e) {
             e.printStackTrace();
         }
     }
 
-    /**
-     * Send response to incoming request
-     */
-    public void
-    sendResponse(JUMPMessage incoming, JUMPResponse value) {
-        try {
-            JUMPOutgoingMessage m = value.toMessageInResponseTo(incoming, host);
-	    JUMPMessageResponseSender mrs = incoming.getSender();
-
-            mrs.sendResponseMessage(m);
-        } catch(IOException e) {
-            e.printStackTrace();
-        }
-    }
 }

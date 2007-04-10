@@ -1,4 +1,6 @@
 /*
+ * %W% %E%
+ *
  * Copyright  1990-2006 Sun Microsystems, Inc. All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER
  *
@@ -26,7 +28,6 @@ package com.sun.jumpimpl.isolate.jvmprocess;
 
 import com.sun.jump.isolate.jvmprocess.JUMPIsolateProcess;
 import com.sun.jump.isolate.jvmprocess.JUMPAppContainer;
-import com.sun.jump.isolate.jvmprocess.JUMPAppContainerContext;
 import com.sun.jump.common.JUMPAppModel;
 import com.sun.jump.common.JUMPProcess;
 import com.sun.jump.common.JUMPIsolate;
@@ -39,7 +40,6 @@ import com.sun.jump.message.JUMPMessage;
 import com.sun.jump.message.JUMPMessageResponseSender;
 import com.sun.jump.message.JUMPMessageReader;
 import com.sun.jump.os.JUMPOSInterface;
-import com.sun.jumpimpl.process.JUMPModulesConfig;
 import com.sun.jumpimpl.process.JUMPProcessProxyImpl;
 import com.sun.jumpimpl.process.RequestSenderHelper;
 import com.sun.jump.command.JUMPIsolateLifecycleRequest;
@@ -48,27 +48,10 @@ import com.sun.jump.command.JUMPCommand;
 import com.sun.jump.command.JUMPRequest;
 import com.sun.jump.command.JUMPResponse;
 import com.sun.jump.command.JUMPResponseInteger;
-import com.sun.jump.message.JUMPMessageHandler;
-import com.sun.jumpimpl.client.module.windowing.WindowingIsolateClient;
-import com.sun.jumpimpl.client.module.serviceregistry.ServiceRegistryClient;
 
-import java.rmi.Remote;
-import java.rmi.NotBoundException;
-import javax.microedition.xlet.XletContext;
-import javax.microedition.xlet.ixc.IxcRegistry;
-import com.sun.jumpimpl.ixc.XletContextFactory;
-
-import sun.misc.MIDPConfig;
 import sun.misc.ThreadRegistry;
 
-import java.util.Map;
-import java.util.StringTokenizer;
-
-
-public class JUMPIsolateProcessImpl 
-    extends JUMPIsolateProcess
-    implements JUMPMessageHandler, JUMPAppContainerContext
-{
+public class JUMPIsolateProcessImpl extends JUMPIsolateProcess {
     private JUMPProcessProxyImpl    pp;
     private JUMPOSInterface         os;
     private int                     isolateId;
@@ -76,11 +59,6 @@ public class JUMPIsolateProcessImpl
     private JUMPMessageDispatcher   disp;
     private JUMPAppModel            appModel;
     private JUMPAppContainer        appContainer;
-    private WindowingIsolateClient  windowing;
-    private ServiceRegistryClient   serviceRegistry;
-    private Object stateChangeMutex = new Object();
-    private boolean dispatchingStateChange;
-    private boolean exitAfterStateChange;
 
     protected JUMPIsolateProcessImpl() {
 	super();
@@ -101,11 +79,6 @@ public class JUMPIsolateProcessImpl
     public int
     getProcessId() {
         return os.getProcessID();
-    }
-
-    public Map
-    getConfig() {
-        return JUMPModulesConfig.getProperties();
     }
 
     /**
@@ -144,162 +117,135 @@ public class JUMPIsolateProcessImpl
         throw new UnsupportedOperationException();
     }
 
+    /*
+     * Kick start this isolate.
+     * This is the entry point for the isolate process, creating the message
+     * listener.
+     */
+    public static void start() {
+	// Initialize os interface
+	new com.sun.jumpimpl.os.JUMPOSInterfaceImpl();
+
+	// Create and register the singleton isolate process
+	JUMPIsolateProcessImpl ipi = new JUMPIsolateProcessImpl();
+
+	// Create message processor thread.
+	ipi.createListenerThread();
+    }
+
     //
-    // The message handlers do the job.
-    // The message processor thread keeps the JVM alive.
+    // Main program sleeps forever. The message handlers do the job.
+    // FIXME: This can initialize the system more.
+    // We can also potentially combine main() and start() into one.
+    // Finally, if we can find a way the dispatcher thread for mvm/client 
+    // can keep the vm alive, we might not need a main() that sleeps forever.
     //
-    public static void main(String[] args) {
-	try {
-            if(args.length > 1 && args[1] != null) {
-                JUMPModulesConfig.overrideDefaultConfig(args[1]);
-            }
-
-            // Initialize os interface
-            new com.sun.jumpimpl.os.JUMPOSInterfaceImpl();
-
-            // Create and register the singleton isolate process
-            JUMPIsolateProcessImpl ipi = new JUMPIsolateProcessImpl();
-
-	    // Register the executive before starting the messaging thread
-            ipi.getExecutiveProcess();
-
-            JUMPMessageDispatcher d = ipi.getMessageDispatcher();
-
-            d.registerHandler("mvm/client", ipi);
-            // FIXME: should go away once Ixc is on messaging
-            d.registerHandler("mvm/ixc", ipi);
-
-            JUMPAppModel appModel = JUMPAppModel.fromName(args[0]);
-            if (appModel == null) {
-                // Unknown app model
-                throw new RuntimeException("Unknown app model "+args[0]);
-            }
-
-            ipi.initialize(appModel);
-
-            //
-            // Once registerDirect() completes with success,
-            // we know we can receive messages. Report.
-            //
-            ipi.reportIsolateInitialized();
-
-            // Now we are ready. Drop off and let the message listener thread
-            // keep this JVM alive.
-	} catch (Throwable e) {
-	    e.printStackTrace();
-	    System.exit(-1);
+    public static void main(String[] args) 
+    {
+	JUMPAppModel appModel = JUMPAppModel.fromName(args[0]);
+	if (appModel == null) {
+	    // Unknown app model
+	    throw new RuntimeException("Unknown app model "+args[0]);
 	}
+	JUMPIsolateProcessImpl ipi = 
+	    (JUMPIsolateProcessImpl)JUMPIsolateProcess.getInstance();
+	ipi.initialize(appModel);
+	
+	do {
+	    try {
+		Thread.sleep(0L);
+	    } catch (Throwable e) {
+	    }
+	} while(true);
     }
     
     public void initialize(JUMPAppModel appModel) {
 	System.err.println("Setting app model to "+appModel);
 	this.appModel = appModel;
-
-        AppContainerFactoryImpl factory = new AppContainerFactoryImpl();
-	this.appContainer = factory.getAppContainer(appModel, this);
-
-        this.windowing = new WindowingIsolateClient();
-
-        System.err.println(
-            this + " config: " + JUMPModulesConfig.getProperties());
-
-        String classes = (String)getConfig().get("isolate-init-classes");
-        if(classes != null) {
-            StringTokenizer st = new StringTokenizer(classes, ",");
-            while(st.hasMoreTokens()) {
-                try {
-                    Class.forName(st.nextToken()).newInstance();
-                } catch(Exception e) {
-                    e.printStackTrace();
-                    throw new RuntimeException("Initialization failed");
-                }
-            }
-        }
+	// FIXME: Create container for 'appModel'
+	this.appContainer = null;
     }
 
+    private void createListenerThread()
+    {
+	ThreadGroup tg = Thread.currentThread().getThreadGroup();
+	for (ThreadGroup tgn = tg;
+	     tgn != null;
+	     tg = tgn, tgn = tg.getParent());
+	Thread lthread = new ListenerThread(tg, "mvm client listener");
+	/* If there were a special system-only priority greater than
+	 * MAX_PRIORITY, it would be used here
+	 */
+	lthread.setPriority(Thread.MAX_PRIORITY);
+	lthread.setDaemon(true);
+	lthread.start();
+    }
+    
     //
     // Messages to this VM processed here
     // For now, all we do is report receipt, send back a success code
     // Eventually, we should handle generic messages here, and pass on
     // anything we don't know about to the container to process.
     //
-    public void handleMessage(JUMPMessage in) {
+    void processMessage(JUMPMessage in) 
+    {
 	JUMPOutgoingMessage responseMessage;
+	JUMPMessageResponseSender returnTo = in.getSender();
+	
 	JUMPCommand raw = JUMPRequest.fromMessage(in);
 	String id = raw.getCommandId();
+	// Now let's figure out the type
+	if (id.equals(JUMPExecutiveLifecycleRequest.ID_START_APP)) {
+	    JUMPExecutiveLifecycleRequest elr = (JUMPExecutiveLifecycleRequest)
+		JUMPExecutiveLifecycleRequest.fromMessage(in);
+	    byte[] barr = elr.getAppBytes();
+	    JUMPApplication app = JUMPApplication.fromByteArray(barr);
+	    String[] args = elr.getArgs();
+	    System.err.println("START_APP("+app+")");
+	    // The message is telling us to start an application
+	    // int appId = appContainer.startApp(app, args);
+	    int appId = 1234;
+	    // Now wrap this appid in a message and return it
+	    JUMPResponseInteger resp;
+	    if (appId != -1) {
+		resp = new JUMPResponseInteger(in.getType(), 
+					       JUMPResponseInteger.ID_SUCCESS,
+					       appId);
+	    } else {
+		resp = new JUMPResponseInteger(in.getType(), 
+					       JUMPResponseInteger.ID_FAILURE,
+					       -1);
+	    }
+	    //
+	    // Now convert JUMPResponse to a message in response
+	    // to the incoming message
+	    //
+	    responseMessage = resp.toMessageInResponseTo(in, this);
+	} else {
+	    // Assumption of default message
+	    // A utf array, expecting a generic JUMPResponse
+	    JUMPMessageReader reader = new JUMPMessageReader(in);
+	    System.err.println("Incoming client message:");
+	    String[] responseStrings = reader.getUTFArray();
+	    for (int j = 0; j < responseStrings.length; j++) {
+		System.err.println("    \""+responseStrings[j]+"\"");
+	    }
+	    responseMessage = newOutgoingMessage(in);
+	    responseMessage.addUTFArray(new String[] {"SUCCESS"});
+	}
 
-	System.err.println("RECEIVED MESSAGE TYPE "+id);
-
-        synchronized (stateChangeMutex) {
-            dispatchingStateChange = true;
-        }
-
-        try {
-            // Now let's figure out the type
-            if (id.equals(JUMPExecutiveLifecycleRequest.ID_START_APP)) {
-                responseMessage = handleStartAppMessage(in);
-            } else if (id.equals(JUMPExecutiveLifecycleRequest.ID_PAUSE_APP)) {
-                responseMessage = handlePauseAppMessage(in);
-            } else if (
-                    id.equals(JUMPExecutiveLifecycleRequest.ID_RESUME_APP)) {
-                responseMessage = handleResumeAppMessage(in);
-            } else if (
-                    id.equals(JUMPExecutiveLifecycleRequest.ID_DESTROY_APP)) {
-                responseMessage = handleDestroyAppMessage(in);
-            } else if (
-                id.equals(com.sun.jumpimpl.ixc.IxcMessage.ID_PORT)) {
-                // Tell the isolate about the ixc port.
-                // FIXME: should go away once ixc is on messaging.
-                responseMessage = handleIxcMessage(in);
-            } else {
-                responseMessage = handleUnknownMessage(in);
-            }
-
-            in.getSender().sendResponseMessage(responseMessage);
-
-        } catch (Throwable e) {
-            e.printStackTrace();
-        } finally {
-            synchronized (stateChangeMutex) {
-                dispatchingStateChange = false;
-
-                if (exitAfterStateChange) {
-                    System.exit(0);
-                }
-            }
-        }
+	try {
+	    returnTo.sendResponseMessage(responseMessage);
+	} catch (Throwable e) {
+	    e.printStackTrace();
+	}
     }
-
-    public void notifyDestroyed(int appId) {
-        //TODO: send message back to executive
-    }
-
-    public void notifyPaused(int appId) {
-        //TODO: send message back to executive
-    }
-
-    public void resumeRequest(int appId) {
-        //TODO: send message back to executive
-    }
-
-    public String getConfigProperty(String key) {
-        return (String)JUMPModulesConfig.getProperties().get(key);
-    }
-
-    public void terminateIsolate() {
-        synchronized (stateChangeMutex) {
-            if (dispatchingStateChange) {
-                exitAfterStateChange = true;
-            } else {
-                System.exit(0);
-            }
-        }
-    }
-
+    
     /**
      * Report to the executive that we have initialized ourselves
      */
-    private void reportIsolateInitialized() {
+    private void reportIsolateInitialized() 
+    {
 	JUMPProcessProxy e = getExecutiveProcess();
 	RequestSenderHelper rsh = new RequestSenderHelper(this);
 	String reqId = JUMPIsolateLifecycleRequest.ID_ISOLATE_INITIALIZED;
@@ -308,154 +254,34 @@ public class JUMPIsolateProcessImpl
 					    
 	rsh.sendRequestAsync(e, req);
     }
+    
+    class ListenerThread extends Thread {
+	
+	ListenerThread(ThreadGroup g, String name) {
+	    super(g, name);
+	}
 
-    /** {@inheritDoc} */
-    public Remote getRemoteService(String name) {
-        return serviceRegistry.getRemoteService(name);
-    }
-
-    private JUMPOutgoingMessage handleStartAppMessage(JUMPMessage in) {
-        JUMPExecutiveLifecycleRequest elr = (JUMPExecutiveLifecycleRequest)
-            JUMPExecutiveLifecycleRequest.fromMessage(in);
-        byte[] barr = elr.getAppBytes();
-        JUMPApplication app = JUMPApplication.fromByteArray(barr);
-        String[] args = elr.getArgs();
-        System.err.println("START_APP("+app+")");
-        int appId;
-
-        if (appContainer == null) {
-            appId = -1; 
-        } else {
-            // The message is telling us to start an application
-            windowing.onBeforeApplicationStarted(app);
-            appId = appContainer.startApp(app, args);
-        }
-
-        // Now wrap this appid in a message and return it
-        JUMPResponseInteger resp;
-        if (appId >= 0) {
-            resp = new JUMPResponseInteger(in.getType(), 
-                                           JUMPResponseInteger.ID_SUCCESS,
-                                           appId);
-        } else {
-            resp = new JUMPResponseInteger(in.getType(), 
-                                           JUMPResponseInteger.ID_FAILURE,
-                                           -1);
-        }
-
-        /*
-         * Now convert JUMPResponse to a message in response
-	 * to the incoming message
-	 */
-        return resp.toMessageInResponseTo(in, this);
-    }
-
-    private JUMPOutgoingMessage handlePauseAppMessage(JUMPMessage in) {
-        JUMPExecutiveLifecycleRequest elr = (JUMPExecutiveLifecycleRequest)
-            JUMPExecutiveLifecycleRequest.fromMessage(in);
-        String[] args = elr.getArgs();
-        int appID = Integer.parseInt(args[0]);
-        System.err.println("PAUSE_APP("+appID+")");
-        appContainer.pauseApp(appID);
-
-        JUMPResponse resp =
-            new JUMPResponse(in.getType(), JUMPResponseInteger.ID_SUCCESS);
-        
-        return resp.toMessageInResponseTo(in, this);
-    }
-
-    private JUMPOutgoingMessage handleResumeAppMessage(JUMPMessage in) {
-        JUMPExecutiveLifecycleRequest elr = (JUMPExecutiveLifecycleRequest)
-            JUMPExecutiveLifecycleRequest.fromMessage(in);
-        String[] args = elr.getArgs();
-        int appID = Integer.parseInt(args[0]);
-        System.err.println("RESUME_APP("+appID+")");
-        appContainer.resumeApp(appID);
-
-        JUMPResponse resp =
-            new JUMPResponse(in.getType(), JUMPResponseInteger.ID_SUCCESS);
-
-        return resp.toMessageInResponseTo(in, this);
-    }
-
-    private JUMPOutgoingMessage handleDestroyAppMessage(JUMPMessage in) {
-        JUMPExecutiveLifecycleRequest elr = (JUMPExecutiveLifecycleRequest)
-            JUMPExecutiveLifecycleRequest.fromMessage(in);
-        String[] args = elr.getArgs();
-        int appID = Integer.parseInt(args[0]);
-        boolean unconditional = Boolean.getBoolean(args[1]);
-        System.err.println("DESTROY_APP("+appID+")");
-        String responseCode = JUMPResponseInteger.ID_SUCCESS;
-
-        try {
-            appContainer.destroyApp(appID, unconditional);
-        } catch (RuntimeException e) {
-            responseCode = JUMPResponseInteger.ID_FAILURE;
-        }
-
-        JUMPResponse resp = new JUMPResponse(in.getType(), responseCode);
-        return resp.toMessageInResponseTo(in, this);
-    }
-
-    private JUMPOutgoingMessage handleUnknownMessage(JUMPMessage in) {
-        // Assumption of default message
-        // A utf array, expecting a generic JUMPResponse
-        JUMPMessageReader reader = new JUMPMessageReader(in);
-        System.err.println("Incoming client message:");
-        String[] responseStrings = reader.getUTFArray();
-
-        for (int j = 0; j < responseStrings.length; j++) {
-            System.err.println("    \""+responseStrings[j]+"\"");
-        }
-
-        JUMPOutgoingMessage out = newOutgoingMessage(in);
-        out.addUTFArray(new String[] {"SUCCESS"});
-        return out;
-    }
-
-    /**
-     * Fetches class loader to use for implementation classes in IXC.
-     *
-     * @return class loader to use
-     */
-    private ClassLoader getImplClassLoader() {
-        /*
-         * IMPL_NOTE: a hack!  What we're trying to achieve is to
-         * find out a class loader for IXC used in implementation classes.
-         * For MIDP container MIDPConfig should return proper class loader.
-         * For non MIDP container MIDPConfig is assumed to return null and
-         * it is substituted with proper class loader.
-         *
-         * Better solution could be to have separate implemenations for
-         * different isolate types (main, xlet, midlet)
-         */
-        /*
-         * NOTE: cannot relaibly use getClass().getClassLoader() as currently
-         * JUMPIsolateProcessImpl is loaded by bootstrap class loader.
-         */
-        final ClassLoader cl = sun.misc.MIDPConfig.getMIDPImplementationClassLoader();
-        if (cl != null) {
-            // MIDP container case
-            return cl;
-        }
-        // Main/xlet case
-        return ClassLoader.getSystemClassLoader();
-    }
-
-    /**
-     * Extract port number from the message and tell it to the 
-     * service registry client.
-     * FIXME: should be removed once ixc is on messaging.
-     */
-    private JUMPOutgoingMessage handleIxcMessage(JUMPMessage in) {
-        JUMPCommand message = JUMPCommand.fromMessage(in, 
-                                  com.sun.jumpimpl.ixc.IxcMessage.class);
-
-        int port = Integer.parseInt(message.getCommandData()[0]);
- 
-        serviceRegistry = new ServiceRegistryClient(getImplClassLoader(), port);
-
-        JUMPResponse resp = new JUMPResponse(in.getType(), JUMPResponseInteger.ID_SUCCESS);
-        return resp.toMessageInResponseTo(in, this);
+	public void run() {
+	    JUMPMessageDispatcher d = getMessageDispatcher();
+	    try {
+		d.registerDirect("mvm/client");
+	    } catch (Throwable e) {
+		e.printStackTrace();
+		return;
+	    }
+	    //
+	    // Once registerDirect() completes with success,
+	    // we know we can receive messages. Report.
+	    //
+	    reportIsolateInitialized();
+	    while (!ThreadRegistry.exitRequested()) {
+		try {
+		    JUMPMessage m = d.waitForMessage("mvm/client", 0L);
+		    processMessage(m);
+		} catch (Throwable e) {
+		    e.printStackTrace();
+		}
+	    }
+	}
     }
 }
