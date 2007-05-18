@@ -136,7 +136,7 @@ interface, using the remote service interface as a key. For example:
 <pre>
 import com.sun.jump.module.lifecycle.remote.JUMPLifeCycleModuleRemote;
 
-String remoteLifecyleInterface = JUMPLifeCycleModuleRemote.class.getName();
+java.lang.Class remoteLifecyleInterface = JUMPLifeCycleModuleRemote.class;
 java.rmi.Remote mod =
     JUMPIsolateProcess.getRemoteService(remoteLifecycleInterface);
 JUMPLifeCycleModuleRemote rlifecycle = (JUMPLifeCycleModuleRemote)mod;
